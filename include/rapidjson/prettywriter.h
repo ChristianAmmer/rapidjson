@@ -122,7 +122,10 @@ public:
 
     bool StartObject() {
         PrettyPrefix(kObjectType);
-        new (Base::level_stack_.template Push<typename Base::Level>()) typename Base::Level(false);
+        auto ptr = Base::level_stack_.template Push<typename Base::Level>();
+        if (!ptr)
+            return false;
+        new (ptr) typename Base::Level(false);
         return Base::WriteStartObject();
     }
 
@@ -156,7 +159,10 @@ public:
 
     bool StartArray() {
         PrettyPrefix(kArrayType);
-        new (Base::level_stack_.template Push<typename Base::Level>()) typename Base::Level(true);
+        auto ptr = Base::level_stack_.template Push<typename Base::Level>();
+        if (!ptr)
+            return false;
+        new (ptr) typename Base::Level(true);
         return Base::WriteStartArray();
     }
 

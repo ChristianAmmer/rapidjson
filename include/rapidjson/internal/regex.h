@@ -78,7 +78,7 @@ static const SizeType kRegexInvalidState = ~SizeType(0);  //!< Represents an inv
 static const SizeType kRegexInvalidRange = ~SizeType(0);
 
 template <typename Encoding, typename Allocator>
-class GenericRegexSearch;
+class [[deprecated("missing handling of memory allocation errors")]] GenericRegexSearch;
 
 //! Regular expression engine with subset of ECMAscript grammar.
 /*!
@@ -113,7 +113,7 @@ class GenericRegexSearch;
         https://swtch.com/~rsc/regexp/regexp1.html 
 */
 template <typename Encoding, typename Allocator = CrtAllocator>
-class GenericRegex {
+class [[deprecated("missing handling of memory allocation errors")]] GenericRegex {
 public:
     typedef Encoding EncodingType;
     typedef typename Encoding::Ch Ch;

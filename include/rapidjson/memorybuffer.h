@@ -34,7 +34,7 @@ RAPIDJSON_NAMESPACE_BEGIN
     \note implements Stream concept
 */
 template <typename Allocator = CrtAllocator>
-struct GenericMemoryBuffer {
+struct [[deprecated("missing handling of memory allocation errors")]] GenericMemoryBuffer {
     typedef char Ch; // byte
 
     GenericMemoryBuffer(Allocator* allocator = 0, size_t capacity = kDefaultCapacity) : stack_(allocator, capacity) {}

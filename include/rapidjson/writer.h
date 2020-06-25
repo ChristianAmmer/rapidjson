@@ -216,7 +216,10 @@ public:
 
     bool StartObject() {
         Prefix(kObjectType);
-        new (level_stack_.template Push<Level>()) Level(false);
+        auto ptr = level_stack_.template Push<Level>();
+        if (!ptr)
+            return false;
+        new (ptr) Level(false);
         return WriteStartObject();
     }
 
@@ -240,7 +243,10 @@ public:
 
     bool StartArray() {
         Prefix(kArrayType);
-        new (level_stack_.template Push<Level>()) Level(true);
+        auto ptr = level_stack_.template Push<Level>();
+        if (!ptr)
+            return false;
+        new (ptr) Level(true);
         return WriteStartArray();
     }
 
@@ -510,6 +516,8 @@ private:
 template<>
 inline bool Writer<StringBuffer>::WriteInt(int i) {
     char *buffer = os_->Push(11);
+    if (!buffer)
+        return false;
     const char* end = internal::i32toa(i, buffer);
     os_->Pop(static_cast<size_t>(11 - (end - buffer)));
     return true;
@@ -518,6 +526,8 @@ inline bool Writer<StringBuffer>::WriteInt(int i) {
 template<>
 inline bool Writer<StringBuffer>::WriteUint(unsigned u) {
     char *buffer = os_->Push(10);
+    if (!buffer)
+        return false;
     const char* end = internal::u32toa(u, buffer);
     os_->Pop(static_cast<size_t>(10 - (end - buffer)));
     return true;
@@ -526,6 +536,8 @@ inline bool Writer<StringBuffer>::WriteUint(unsigned u) {
 template<>
 inline bool Writer<StringBuffer>::WriteInt64(int64_t i64) {
     char *buffer = os_->Push(21);
+    if (!buffer)
+        return false;
     const char* end = internal::i64toa(i64, buffer);
     os_->Pop(static_cast<size_t>(21 - (end - buffer)));
     return true;
@@ -534,6 +546,8 @@ inline bool Writer<StringBuffer>::WriteInt64(int64_t i64) {
 template<>
 inline bool Writer<StringBuffer>::WriteUint64(uint64_t u) {
     char *buffer = os_->Push(20);
+    if (!buffer)
+        return false;
     const char* end = internal::u64toa(u, buffer);
     os_->Pop(static_cast<size_t>(20 - (end - buffer)));
     return true;
@@ -562,6 +576,8 @@ inline bool Writer<StringBuffer>::WriteDouble(double d) {
     }
     
     char *buffer = os_->Push(25);
+    if (!buffer)
+        return false;
     char* end = internal::dtoa(d, buffer, maxDecimalPlaces_);
     os_->Pop(static_cast<size_t>(25 - (end - buffer)));
     return true;

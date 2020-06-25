@@ -928,13 +928,18 @@ private:
     public:
         typedef CharType Ch;
 
-        StackStream(internal::Stack<StackAllocator>& stack) : stack_(stack), length_(0) {}
+        StackStream(internal::Stack<StackAllocator>& stack) : stack_(stack), length_(0), error_(false) {}
         RAPIDJSON_FORCEINLINE void Put(Ch c) {
-            *stack_.template Push<Ch>() = c;
-            ++length_;
+            auto ptr = stack_.template Push<Ch>();
+            if (ptr) {
+                *ptr = c;
+                ++length_;
+            }
+            else
+                error_ = true;
         }
 
-        RAPIDJSON_FORCEINLINE void* Push(SizeType count) {
+        [[deprecated("missing handling of memory allocation errors")]] RAPIDJSON_FORCEINLINE void* Push(SizeType count) {
             length_ += count;
             return stack_.template Push<Ch>(count);
         }
@@ -945,12 +950,15 @@ private:
             return stack_.template Pop<Ch>(length_);
         }
 
+        bool IsValid() const { return !error_; }
+
     private:
         StackStream(const StackStream&);
         StackStream& operator=(const StackStream&);
 
         internal::Stack<StackAllocator>& stack_;
         SizeType length_;
+        bool error_;
     };
 
     // Parse string and generate String event. Different code paths for kParseInsituFlag.
@@ -976,9 +984,13 @@ private:
             StackStream<typename TargetEncoding::Ch> stackStream(stack_);
             ParseStringToStream<parseFlags, SourceEncoding, TargetEncoding>(s, stackStream);
             RAPIDJSON_PARSE_ERROR_EARLY_RETURN_VOID;
-            SizeType length = static_cast<SizeType>(stackStream.Length()) - 1;
-            const typename TargetEncoding::Ch* const str = stackStream.Pop();
-            success = (isKey ? handler.Key(str, length, true) : handler.String(str, length, true));
+            if (stackStream.IsValid()) {
+                SizeType length = static_cast<SizeType>(stackStream.Length()) - 1;
+                const typename TargetEncoding::Ch *const str = stackStream.Pop();
+                success = (isKey ? handler.Key(str, length, true) : handler.String(str, length, true));
+            }
+            else
+                success = false;
         }
         if (RAPIDJSON_UNLIKELY(!success))
             RAPIDJSON_PARSE_ERROR(kParseErrorTermination, s.Tell());
@@ -1422,18 +1434,18 @@ private:
     public:
         NumberStream(GenericReader& reader, InputStream& is) : Base(reader, is), stackStream(reader.stack_) {}
 
-        RAPIDJSON_FORCEINLINE Ch TakePush() {
+        [[deprecated("missing handling of memory allocation errors")]] RAPIDJSON_FORCEINLINE Ch TakePush() {
             stackStream.Put(static_cast<char>(Base::is.Peek()));
             return Base::is.Take();
         }
 
-        RAPIDJSON_FORCEINLINE void Push(char c) {
+        [[deprecated("missing handling of memory allocation errors")]] RAPIDJSON_FORCEINLINE void Push(char c) {
             stackStream.Put(c);
         }
 
         size_t Length() { return stackStream.Length(); }
 
-        const char* Pop() {
+        [[deprecated("missing handling of memory allocation errors")]] const char* Pop() {
             stackStream.Put('\0');
             return stackStream.Pop();
         }
@@ -1678,9 +1690,13 @@ private:
                     Transcoder<UTF8<>, TargetEncoding>::Transcode(srcStream, dstStream);
                 }
                 dstStream.Put('\0');
-                const typename TargetEncoding::Ch* str = dstStream.Pop();
-                const SizeType length = static_cast<SizeType>(dstStream.Length()) - 1;
-                cont = handler.RawNumber(str, SizeType(length), true);
+                if (dstStream.IsValid()) {
+                    const typename TargetEncoding::Ch* str = dstStream.Pop();
+                    const SizeType length = static_cast<SizeType>(dstStream.Length());
+                    cont = handler.RawNumber(str, SizeType(length - 1), true);
+                }
+                else
+                    cont = false;
             }
         }
         else {
@@ -1997,9 +2013,19 @@ private:
             else if (src == IterativeParsingKeyValueDelimiterState)
                 n = IterativeParsingMemberValueState;
             // Push current state.
-            *stack_.template Push<SizeType>(1) = n;
+            auto ptr = stack_.template Push<SizeType>(1);
+            if (!ptr) {
+                RAPIDJSON_PARSE_ERROR_NORETURN(kParseErrorTermination, is.Tell());
+                return IterativeParsingErrorState;
+            }
+            *ptr = n;
             // Initialize and push the member/element count.
-            *stack_.template Push<SizeType>(1) = 0;
+            ptr = stack_.template Push<SizeType>(1);
+            if (!ptr) {
+                RAPIDJSON_PARSE_ERROR_NORETURN(kParseErrorTermination, is.Tell());
+                return IterativeParsingErrorState;
+            }
+
             // Call handler
             bool hr = (dst == IterativeParsingObjectInitialState) ? handler.StartObject() : handler.StartArray();
             // On handler short circuits the parsing.

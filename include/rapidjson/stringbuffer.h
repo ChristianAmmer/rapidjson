@@ -53,14 +53,27 @@ public:
     }
 #endif
 
-    void Put(Ch c) { *stack_.template Push<Ch>() = c; }
-    void PutUnsafe(Ch c) { *stack_.template PushUnsafe<Ch>() = c; }
+    void Put(Ch c) {
+        auto ptr = stack_.template Push<Ch>();
+        if (!ptr)
+            return;
+        *ptr = c;
+    }
+    void PutUnsafe(Ch c) {
+        auto ptr = stack_.template PushUnsafe<Ch>();
+        if (!ptr)
+            return;
+        *ptr = c;
+    }
     void Flush() {}
 
     void Clear() { stack_.Clear(); }
     void ShrinkToFit() {
         // Push and pop a null terminator. This is safe.
-        *stack_.template Push<Ch>() = '\0';
+        auto ptr = stack_.template Push<Ch>();
+        if (!ptr)
+            return;
+        *ptr = '\0';
         stack_.ShrinkToFit();
         stack_.template Pop<Ch>(1);
     }
@@ -72,7 +85,10 @@ public:
 
     const Ch* GetString() const {
         // Push and pop a null terminator. This is safe.
-        *stack_.template Push<Ch>() = '\0';
+        auto ptr = stack_.template Push<Ch>();
+        if (!ptr)
+            return nullptr;
+        *ptr = '\0';
         stack_.template Pop<Ch>(1);
 
         return stack_.template Bottom<Ch>();
@@ -109,7 +125,10 @@ inline void PutUnsafe(GenericStringBuffer<Encoding, Allocator>& stream, typename
 //! Implement specialized version of PutN() with memset() for better performance.
 template<>
 inline void PutN(GenericStringBuffer<UTF8<> >& stream, char c, size_t n) {
-    std::memset(stream.stack_.Push<char>(n), c, n * sizeof(c));
+    auto ptr = stream.stack_.Push<char>(n);
+    if (!ptr)
+        return;
+    std::memset(ptr, c, n * sizeof(c));
 }
 
 RAPIDJSON_NAMESPACE_END
